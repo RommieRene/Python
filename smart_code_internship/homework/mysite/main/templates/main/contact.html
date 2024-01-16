@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+
+{% block title %}Contact page{% endblock %}
+
+{% block name %}Contact{% endblock%}
+   
+    
+{% block content %}
+
+    <form> method='post
+        {% csrf_token %}
+        <p>
+        <input type="email" name="email" placeholder="Enter Your Email" id="">
+         </p>
+         <p>
+            <input type="text" name="text" placeholder="Enter Your Phone number" id="">
+          </p>
+          <p>
+            <input type="text" name="text" placeholder="Subject" id="">
+             </p>
+             <p>
+                <textarea name="message" id="" cols="50" rows="20" placeholder="Message"></textarea>
+                 </p>
+                 <button type="submit">Send</button>
+    </form>
+
+
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Products page{% endblock %}
+
+{% block name %}Products{% endblock%}
+   
+    
+{% block content %}
+
+    <h4>Products</h4>
+    <hr>
+    {% for i in product_filter %}
+        {% for j in i.cat_prod.all %}
+            <h4> {{ j.name }}</h4>
+            <a href="{% url 'products_detail' j.slug %}"><img src="{{ j.img.url }}" width="300px" alt=""></a>
+             <p>${{ j.price }}</p>
+            <hr>
+        {% endfor %}
+        
+    {% endfor %}
+
+
+{% endblock %}

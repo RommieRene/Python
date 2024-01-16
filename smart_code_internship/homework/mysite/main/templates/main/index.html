@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Home page{% endblock %}
+
+{% block name %}Home{% endblock%}
+   
+    
+{% block content %}
+
+    <h4>Categoriy</h4>
+    <hr>
+    {% for i in category_list %}
+       <p>
+         <a href="{%url 'products' i.id %}">{{ i.name }}</a>
+        </p>  
+        {% endfor %}
+
+
+{% endblock %}
