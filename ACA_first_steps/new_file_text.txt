@@ -1,0 +1,555 @@
+1,Have you ever had to work with a dataset so large that it overwhelmed your machine’s memory? Or maybe you have a complex function that needs to maintain an internal state every time it’s called, but the function is too small to justify creating its own class. In these cases and more, generators and the Python yield statement are here to help.
+2,
+3,By the end of this article, you’ll know:
+4,
+5,    What generators are and how to use them
+6,    How to create generator functions and expressions
+7,    How the Python yield statement works
+8,    How to use multiple Python yield statements in a generator function
+9,    How to use advanced generator methods
+10,    How to build data pipelines with multiple generators
+11,
+12,If you’re a beginner or intermediate Pythonista and you’re interested in learning how to work with large datasets in a more Pythonic fashion, then this is the tutorial for you.
+13,
+14,You can get a copy of the dataset used in this tutorial by clicking the link below:
+15,
+16,Download Dataset: Click here to download the dataset you’ll use in this tutorial to learn about generators and yield in Python.
+17,Using Generators
+18,
+19,Introduced with PEP 255, generator functions are a special kind of function that return a lazy iterator. These are objects that you can loop over like a list. However, unlike lists, lazy iterators do not store their contents in memory. For an overview of iterators in Python, take a look at Python “for” Loops (Definite Iteration).
+20,
+21,Now that you have a rough idea of what a generator does, you might wonder what they look like in action. Let’s take a look at two examples. In the first, you’ll see how generators work from a bird’s eye view. Then, you’ll zoom in and examine each example more thoroughly.
+22,Remove ads
+23,Example 1: Reading Large Files
+24,
+25,A common use case of generators is to work with data streams or large files, like CSV files. These text files separate data into columns by using commas. This format is a common way to share data. Now, what if you want to count the number of rows in a CSV file? The code block below shows one way of counting those rows:
+26,
+27,csv_gen = csv_reader("some_csv.txt")
+28,row_count = 0
+29,
+30,for row in csv_gen:
+31,    row_count += 1
+32,
+33,print(f"Row count is {row_count}")
+34,
+35,Looking at this example, you might expect csv_gen to be a list. To populate this list, csv_reader() opens a file and loads its contents into csv_gen. Then, the program iterates over the list and increments row_count for each row.
+36,
+37,This is a reasonable explanation, but would this design still work if the file is very large? What if the file is larger than the memory you have available? To answer this question, let’s assume that csv_reader() just opens the file and reads it into an array:
+38,
+39,def csv_reader(file_name):
+40,    file = open(file_name)
+41,    result = file.read().split("\n")
+42,    return result
+43,
+44,This function opens a given file and uses file.read() along with .split() to add each line as a separate element to a list. If you were to use this version of csv_reader() in the row counting code block you saw further up, then you’d get the following output:
+45,
+46,Traceback (most recent call last):
+47,  File "ex1_naive.py", line 22, in <module>
+48,    main()
+49,  File "ex1_naive.py", line 13, in main
+50,    csv_gen = csv_reader("file.txt")
+51,  File "ex1_naive.py", line 6, in csv_reader
+52,    result = file.read().split("\n")
+53,MemoryError
+54,
+55,In this case, open() returns a generator object that you can lazily iterate through line by line. However, file.read().split() loads everything into memory at once, causing the MemoryError.
+56,
+57,Before that happens, you’ll probably notice your computer slow to a crawl. You might even need to kill the program with a KeyboardInterrupt. So, how can you handle these huge data files? Take a look at a new definition of csv_reader():
+58,
+59,def csv_reader(file_name):
+60,    for row in open(file_name, "r"):
+61,        yield row
+62,
+63,In this version, you open the file, iterate through it, and yield a row. This code should produce the following output, with no memory errors:
+64,
+65,Row count is 64186394
+66,
+67,What’s happening here? Well, you’ve essentially turned csv_reader() into a generator function. This version opens a file, loops through each line, and yields each row, instead of returning it.
+68,
+69,You can also define a generator expression (also called a generator comprehension), which has a very similar syntax to list comprehensions. In this way, you can use the generator without calling a function:
+70,
+71,csv_gen = (row for row in open(file_name))
+72,
+73,This is a more succinct way to create the list csv_gen. You’ll learn more about the Python yield statement soon. For now, just remember this key difference:
+74,
+75,    Using yield will result in a generator object.
+76,    Using return will result in the first line of the file only.
+77,
+78,Example 2: Generating an Infinite Sequence
+79,
+80,Let’s switch gears and look at infinite sequence generation. In Python, to get a finite sequence, you call range() and evaluate it in a list context:
+81,
+82,>>> a = range(5)
+83,>>> list(a)
+84,[0, 1, 2, 3, 4]
+85,
+86,Generating an infinite sequence, however, will require the use of a generator, since your computer memory is finite:
+87,
+88,def infinite_sequence():
+89,    num = 0
+90,    while True:
+91,        yield num
+92,        num += 1
+93,
+94,This code block is short and sweet. First, you initialize the variable num and start an infinite loop. Then, you immediately yield num so that you can capture the initial state. This mimics the action of range().
+95,
+96,After yield, you increment num by 1. If you try this with a for loop, then you’ll see that it really does seem infinite:
+97,
+98,>>> for i in infinite_sequence():
+99,...     print(i, end=" ")
+100,...
+101,0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29
+102,30 31 32 33 34 35 36 37 38 39 40 41 42
+103,[...]
+104,6157818 6157819 6157820 6157821 6157822 6157823 6157824 6157825 6157826 6157827
+105,6157828 6157829 6157830 6157831 6157832 6157833 6157834 6157835 6157836 6157837
+106,6157838 6157839 6157840 6157841 6157842
+107,KeyboardInterrupt
+108,Traceback (most recent call last):
+109,  File "<stdin>", line 2, in <module>
+110,
+111,The program will continue to execute until you stop it manually.
+112,
+113,Instead of using a for loop, you can also call next() on the generator object directly. This is especially useful for testing a generator in the console:
+114,
+115,>>> gen = infinite_sequence()
+116,>>> next(gen)
+117,0
+118,>>> next(gen)
+119,1
+120,>>> next(gen)
+121,2
+122,>>> next(gen)
+123,3
+124,
+125,Here, you have a generator called gen, which you manually iterate over by repeatedly calling next(). This works as a great sanity check to make sure your generators are producing the output you expect.
+126,
+127,Note: When you use next(), Python calls .__next__() on the function you pass in as a parameter. There are some special effects that this parameterization allows, but it goes beyond the scope of this article. Experiment with changing the parameter you pass to next() and see what happens!
+128,Remove ads
+129,Example 3: Detecting Palindromes
+130,
+131,You can use infinite sequences in many ways, but one practical use for them is in building palindrome detectors. A palindrome detector will locate all sequences of letters or numbers that are palindromes. These are words or numbers that are read the same forward and backward, like 121. First, define your numeric palindrome detector:
+132,
+133,def is_palindrome(num):
+134,    # Skip single-digit inputs
+135,    if num // 10 == 0:
+136,        return False
+137,    temp = num
+138,    reversed_num = 0
+139,
+140,    while temp != 0:
+141,        reversed_num = (reversed_num * 10) + (temp % 10)
+142,        temp = temp // 10
+143,
+144,    if num == reversed_num:
+145,        return num
+146,    else:
+147,        return False
+148,
+149,Don’t worry too much about understanding the underlying math in this code. Just note that the function takes an input number, reverses it, and checks to see if the reversed number is the same as the original. Now you can use your infinite sequence generator to get a running list of all numeric palindromes:
+150,
+151,>>> for i in infinite_sequence():
+152,...     pal = is_palindrome(i)
+153,...     if pal:
+154,...         print(i)
+155,...
+156,11
+157,22
+158,33
+159,[...]
+160,99799
+161,99899
+162,99999
+163,100001
+164,101101
+165,102201
+166,KeyboardInterrupt
+167,Traceback (most recent call last):
+168,  File "<stdin>", line 2, in <module>
+169,  File "<stdin>", line 5, in is_palindrome
+170,
+171,In this case, the only numbers that are printed to the console are those that are the same forward or backward.
+172,
+173,Note: In practice, you’re unlikely to write your own infinite sequence generator. The itertools module provides a very efficient infinite sequence generator with itertools.count().
+174,
+175,Now that you’ve seen a simple use case for an infinite sequence generator, let’s dive deeper into how generators work.
+176,Understanding Generators
+177,
+178,So far, you’ve learned about the two primary ways of creating generators: by using generator functions and generator expressions. You might even have an intuitive understanding of how generators work. Let’s take a moment to make that knowledge a little more explicit.
+179,
+180,Generator functions look and act just like regular functions, but with one defining characteristic. Generator functions use the Python yield keyword instead of return. Recall the generator function you wrote earlier:
+181,
+182,def infinite_sequence():
+183,    num = 0
+184,    while True:
+185,        yield num
+186,        num += 1
+187,
+188,This looks like a typical function definition, except for the Python yield statement and the code that follows it. yield indicates where a value is sent back to the caller, but unlike return, you don’t exit the function afterward.
+189,
+190,Instead, the state of the function is remembered. That way, when next() is called on a generator object (either explicitly or implicitly within a for loop), the previously yielded variable num is incremented, and then yielded again. Since generator functions look like other functions and act very similarly to them, you can assume that generator expressions are very similar to other comprehensions available in Python.
+191,
+192,Note: Are you rusty on Python’s list, set, and dictionary comprehensions? You can check out Using List Comprehensions Effectively.
+193,Building Generators With Generator Expressions
+194,
+195,Like list comprehensions, generator expressions allow you to quickly create a generator object in just a few lines of code. They’re also useful in the same cases where list comprehensions are used, with an added benefit: you can create them without building and holding the entire object in memory before iteration. In other words, you’ll have no memory penalty when you use generator expressions. Take this example of squaring some numbers:
+196,
+197,>>> nums_squared_lc = [num**2 for num in range(5)]
+198,>>> nums_squared_gc = (num**2 for num in range(5))
+199,
+200,Both nums_squared_lc and nums_squared_gc look basically the same, but there’s one key difference. Can you spot it? Take a look at what happens when you inspect each of these objects:
+201,
+202,>>> nums_squared_lc
+203,[0, 1, 4, 9, 16]
+204,>>> nums_squared_gc
+205,<generator object <genexpr> at 0x107fbbc78>
+206,
+207,The first object used brackets to build a list, while the second created a generator expression by using parentheses. The output confirms that you’ve created a generator object and that it is distinct from a list.
+208,Remove ads
+209,Profiling Generator Performance
+210,
+211,You learned earlier that generators are a great way to optimize memory. While an infinite sequence generator is an extreme example of this optimization, let’s amp up the number squaring examples you just saw and inspect the size of the resulting objects. You can do this with a call to sys.getsizeof():
+212,
+213,>>> import sys
+214,>>> nums_squared_lc = [i ** 2 for i in range(10000)]
+215,>>> sys.getsizeof(nums_squared_lc)
+216,87624
+217,>>> nums_squared_gc = (i ** 2 for i in range(10000))
+218,>>> print(sys.getsizeof(nums_squared_gc))
+219,120
+220,
+221,In this case, the list you get from the list comprehension is 87,624 bytes, while the generator object is only 120. This means that the list is over 700 times larger than the generator object!
+222,
+223,There is one thing to keep in mind, though. If the list is smaller than the running machine’s available memory, then list comprehensions can be faster to evaluate than the equivalent generator expression. To explore this, let’s sum across the results from the two comprehensions above. You can generate a readout with cProfile.run():
+224,
+225,>>> import cProfile
+226,>>> cProfile.run('sum([i * 2 for i in range(10000)])')
+227,         5 function calls in 0.001 seconds
+228,
+229,   Ordered by: standard name
+230,
+231,   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+232,        1    0.001    0.001    0.001    0.001 <string>:1(<listcomp>)
+233,        1    0.000    0.000    0.001    0.001 <string>:1(<module>)
+234,        1    0.000    0.000    0.001    0.001 {built-in method builtins.exec}
+235,        1    0.000    0.000    0.000    0.000 {built-in method builtins.sum}
+236,        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+237,
+238,
+239,>>> cProfile.run('sum((i * 2 for i in range(10000)))')
+240,         10005 function calls in 0.003 seconds
+241,
+242,   Ordered by: standard name
+243,
+244,   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+245,    10001    0.002    0.000    0.002    0.000 <string>:1(<genexpr>)
+246,        1    0.000    0.000    0.003    0.003 <string>:1(<module>)
+247,        1    0.000    0.000    0.003    0.003 {built-in method builtins.exec}
+248,        1    0.001    0.001    0.003    0.003 {built-in method builtins.sum}
+249,        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}
+250,
+251,Here, you can see that summing across all values in the list comprehension took about a third of the time as summing across the generator. If speed is an issue and memory isn’t, then a list comprehension is likely a better tool for the job.
+252,
+253,Note: These measurements aren’t only valid for objects made with generator expressions. They’re also the same for objects made from the analogous generator function since the resulting generators are equivalent.
+254,
+255,Remember, list comprehensions return full lists, while generator expressions return generators. Generators work the same whether they’re built from a function or an expression. Using an expression just allows you to define simple generators in a single line, with an assumed yield at the end of each inner iteration.
+256,
+257,The Python yield statement is certainly the linchpin on which all of the functionality of generators rests, so let’s dive into how yield works in Python.
+258,Understanding the Python Yield Statement
+259,
+260,On the whole, yield is a fairly simple statement. Its primary job is to control the flow of a generator function in a way that’s similar to return statements. As briefly mentioned above, though, the Python yield statement has a few tricks up its sleeve.
+261,
+262,When you call a generator function or use a generator expression, you return a special iterator called a generator. You can assign this generator to a variable in order to use it. When you call special methods on the generator, such as next(), the code within the function is executed up to yield.
+263,
+264,When the Python yield statement is hit, the program suspends function execution and returns the yielded value to the caller. (In contrast, return stops function execution completely.) When a function is suspended, the state of that function is saved. This includes any variable bindings local to the generator, the instruction pointer, the internal stack, and any exception handling.
+265,
+266,This allows you to resume function execution whenever you call one of the generator’s methods. In this way, all function evaluation picks back up right after yield. You can see this in action by using multiple Python yield statements:
+267,
+268,>>> def multi_yield():
+269,...     yield_str = "This will print the first string"
+270,...     yield yield_str
+271,...     yield_str = "This will print the second string"
+272,...     yield yield_str
+273,...
+274,>>> multi_obj = multi_yield()
+275,>>> print(next(multi_obj))
+276,This will print the first string
+277,>>> print(next(multi_obj))
+278,This will print the second string
+279,>>> print(next(multi_obj))
+280,Traceback (most recent call last):
+281,  File "<stdin>", line 1, in <module>
+282,StopIteration
+283,
+284,Take a closer look at that last call to next(). You can see that execution has blown up with a traceback. This is because generators, like all iterators, can be exhausted. Unless your generator is infinite, you can iterate through it one time only. Once all values have been evaluated, iteration will stop and the for loop will exit. If you used next(), then instead you’ll get an explicit StopIteration exception.
+285,
+286,Note: StopIteration is a natural exception that’s raised to signal the end of an iterator. for loops, for example, are built around StopIteration. You can even implement your own for loop by using a while loop:
+287,
+288,>>> letters = ["a", "b", "c", "y"]
+289,>>> it = iter(letters)
+290,>>> while True:
+291,...     try:
+292,...         letter = next(it)
+293,...     except StopIteration:
+294,...         break
+295,...     print(letter)
+296,...
+297,a
+298,b
+299,c
+300,y
+301,
+302,You can read more about StopIteration in the Python documentation on exceptions. For more on iteration in general, check out Python “for” Loops (Definite Iteration) and Python “while” Loops (Indefinite Iteration).
+303,
+304,yield can be used in many ways to control your generator’s execution flow. The use of multiple Python yield statements can be leveraged as far as your creativity allows.
+305,Using Advanced Generator Methods
+306,
+307,You’ve seen the most common uses and constructions of generators, but there are a few more tricks to cover. In addition to yield, generator objects can make use of the following methods:
+308,
+309,    .send()
+310,    .throw()
+311,    .close()
+312,
+313,Remove ads
+314,How to Use .send()
+315,
+316,For this next section, you’re going to build a program that makes use of all three methods. This program will print numeric palindromes like before, but with a few tweaks. Upon encountering a palindrome, your new program will add a digit and start a search for the next one from there. You’ll also handle exceptions with .throw() and stop the generator after a given amount of digits with .close(). First, let’s recall the code for your palindrome detector:
+317,
+318,def is_palindrome(num):
+319,    # Skip single-digit inputs
+320,    if num // 10 == 0:
+321,        return False
+322,    temp = num
+323,    reversed_num = 0
+324,
+325,    while temp != 0:
+326,        reversed_num = (reversed_num * 10) + (temp % 10)
+327,        temp = temp // 10
+328,
+329,    if num == reversed_num:
+330,        return True
+331,    else:
+332,        return False
+333,
+334,This is the same code you saw earlier, except that now the program returns strictly True or False. You’ll also need to modify your original infinite sequence generator, like so:
+335,
+336,def infinite_palindromes():
+337,
+338,    num = 0
+339,
+340,    while True:
+341,
+342,        if is_palindrome(num):
+343,
+344,            i = (yield num)
+345,
+346,            if i is not None:
+347,
+348,                num = i
+349,
+350,        num += 1
+351,
+352,There are a lot of changes here! The first one you’ll see is in line 5, where i = (yield num). Though you learned earlier that yield is a statement, that isn’t quite the whole story.
+353,
+354,As of Python 2.5 (the same release that introduced the methods you are learning about now), yield is an expression, rather than a statement. Of course, you can still use it as a statement. But now, you can also use it as you see in the code block above, where i takes the value that is yielded. This allows you to manipulate the yielded value. More importantly, it allows you to .send() a value back to the generator. When execution picks up after yield, i will take the value that is sent.
+355,
+356,You’ll also check if i is not None, which could happen if next() is called on the generator object. (This can also happen when you iterate with a for loop.) If i has a value, then you update num with the new value. But regardless of whether or not i holds a value, you’ll then increment num and start the loop again.
+357,
+358,Now, take a look at the main function code, which sends the lowest number with another digit back to the generator. For example, if the palindrome is 121, then it will .send() 1000:
+359,
+360,pal_gen = infinite_palindromes()
+361,for i in pal_gen:
+362,    digits = len(str(i))
+363,    pal_gen.send(10 ** (digits))
+364,
+365,With this code, you create the generator object and iterate through it. The program only yields a value once a palindrome is found. It uses len() to determine the number of digits in that palindrome. Then, it sends 10 ** digits to the generator. This brings execution back into the generator logic and assigns 10 ** digits to i. Since i now has a value, the program updates num, increments, and checks for palindromes again.
+366,
+367,Once your code finds and yields another palindrome, you’ll iterate via the for loop. This is the same as iterating with next(). The generator also picks up at line 5 with i = (yield num). However, now i is None, because you didn’t explicitly send a value.
+368,
+369,What you’ve created here is a coroutine, or a generator function into which you can pass data. These are useful for constructing data pipelines, but as you’ll see soon, they aren’t necessary for building them. (If you’re looking to dive deeper, then this course on coroutines and concurrency is one of the most comprehensive treatments available.)
+370,
+371,Now that you’ve learned about .send(), let’s take a look at .throw().
+372,How to Use .throw()
+373,
+374,.throw() allows you to throw exceptions with the generator. In the below example, you raise the exception in line 6. This code will throw a ValueError once digits reaches 5:
+375,
+376,pal_gen = infinite_palindromes()
+377,
+378,for i in pal_gen:
+379,
+380,    print(i)
+381,
+382,    digits = len(str(i))
+383,
+384,    if digits == 5:
+385,
+386,        pal_gen.throw(ValueError("We don't like large palindromes"))
+387,
+388,    pal_gen.send(10 ** (digits))
+389,
+390,This is the same as the previous code, but now you’ll check if digits is equal to 5. If so, then you’ll .throw() a ValueError. To confirm that this works as expected, take a look at the code’s output:
+391,
+392,11
+393,111
+394,1111
+395,10101
+396,Traceback (most recent call last):
+397,  File "advanced_gen.py", line 47, in <module>
+398,    main()
+399,  File "advanced_gen.py", line 41, in main
+400,    pal_gen.throw(ValueError("We don't like large palindromes"))
+401,  File "advanced_gen.py", line 26, in infinite_palindromes
+402,    i = (yield num)
+403,ValueError: We don't like large palindromes
+404,
+405,.throw() is useful in any areas where you might need to catch an exception. In this example, you used .throw() to control when you stopped iterating through the generator. You can do this more elegantly with .close().
+406,Remove ads
+407,How to Use .close()
+408,
+409,As its name implies, .close() allows you to stop a generator. This can be especially handy when controlling an infinite sequence generator. Let’s update the code above by changing .throw() to .close() to stop the iteration:
+410,
+411,pal_gen = infinite_palindromes()
+412,
+413,for i in pal_gen:
+414,
+415,    print(i)
+416,
+417,    digits = len(str(i))
+418,
+419,    if digits == 5:
+420,
+421,        pal_gen.close()
+422,
+423,    pal_gen.send(10 ** (digits))
+424,
+425,Instead of calling .throw(), you use .close() in line 6. The advantage of using .close() is that it raises StopIteration, an exception used to signal the end of a finite iterator:
+426,
+427,11
+428,111
+429,1111
+430,10101
+431,Traceback (most recent call last):
+432,  File "advanced_gen.py", line 46, in <module>
+433,    main()
+434,  File "advanced_gen.py", line 42, in main
+435,    pal_gen.send(10 ** (digits))
+436,StopIteration
+437,
+438,Now that you’ve learned more about the special methods that come with generators, let’s talk about using generators to build data pipelines.
+439,Creating Data Pipelines With Generators
+440,
+441,Data pipelines allow you to string together code to process large datasets or streams of data without maxing out your machine’s memory. Imagine that you have a large CSV file:
+442,
+443,permalink,company,numEmps,category,city,state,fundedDate,raisedAmt,raisedCurrency,round
+444,digg,Digg,60,web,San Francisco,CA,1-Dec-06,8500000,USD,b
+445,digg,Digg,60,web,San Francisco,CA,1-Oct-05,2800000,USD,a
+446,facebook,Facebook,450,web,Palo Alto,CA,1-Sep-04,500000,USD,angel
+447,facebook,Facebook,450,web,Palo Alto,CA,1-May-05,12700000,USD,a
+448,photobucket,Photobucket,60,web,Palo Alto,CA,1-Mar-05,3000000,USD,a
+449,
+450,This example is pulled from the TechCrunch Continental USA set, which describes funding rounds and dollar amounts for various startups based in the USA. Click the link below to download the dataset:
+451,
+452,Download Dataset: Click here to download the dataset you’ll use in this tutorial to learn about generators and yield in Python.
+453,
+454,It’s time to do some processing in Python! To demonstrate how to build pipelines with generators, you’re going to analyze this file to get the total and average of all series A rounds in the dataset.
+455,
+456,Let’s think of a strategy:
+457,
+458,    Read every line of the file.
+459,    Split each line into a list of values.
+460,    Extract the column names.
+461,    Use the column names and lists to create a dictionary.
+462,    Filter out the rounds you aren’t interested in.
+463,    Calculate the total and average values for the rounds you are interested in.
+464,
+465,Normally, you can do this with a package like pandas, but you can also achieve this functionality with just a few generators. You’ll start by reading each line from the file with a generator expression:
+466,
+467,file_name = "techcrunch.csv"
+468,
+469,lines = (line for line in open(file_name))
+470,
+471,Then, you’ll use another generator expression in concert with the previous one to split each line into a list:
+472,
+473,list_line = (s.rstrip().split(",") for s in lines)
+474,
+475,Here, you created the generator list_line, which iterates through the first generator lines. This is a common pattern to use when designing generator pipelines. Next, you’ll pull the column names out of techcrunch.csv. Since the column names tend to make up the first line in a CSV file, you can grab that with a short next() call:
+476,
+477,cols = next(list_line)
+478,
+479,This call to next() advances the iterator over the list_line generator one time. Put it all together, and your code should look something like this:
+480,
+481,file_name = "techcrunch.csv"
+482,
+483,lines = (line for line in open(file_name))
+484,
+485,list_line = (s.rstrip().split(",") for s in lines)
+486,
+487,cols = next(list_line)
+488,
+489,To sum this up, you first create a generator expression lines to yield each line in a file. Next, you iterate through that generator within the definition of another generator expression called list_line, which turns each line into a list of values. Then, you advance the iteration of list_line just once with next() to get a list of the column names from your CSV file.
+490,
+491,Note: Watch out for trailing newlines! This code takes advantage of .rstrip() in the list_line generator expression to make sure there are no trailing newline characters, which can be present in CSV files.
+492,
+493,To help you filter and perform operations on the data, you’ll create dictionaries where the keys are the column names from the CSV:
+494,
+495,company_dicts = (dict(zip(cols, data)) for data in list_line)
+496,
+497,This generator expression iterates through the lists produced by list_line. Then, it uses zip() and dict() to create the dictionary as specified above. Now, you’ll use a fourth generator to filter the funding round you want and pull raisedAmt as well:
+498,
+499,funding = (
+500,
+501,    int(company_dict["raisedAmt"])
+502,
+503,    for company_dict in company_dicts
+504,
+505,    if company_dict["round"] == "a"
+506,
+507,)
+508,
+509,In this code snippet, your generator expression iterates through the results of company_dicts and takes the raisedAmt for any company_dict where the round key is "a".
+510,
+511,Remember, you aren’t iterating through all these at once in the generator expression. In fact, you aren’t iterating through anything until you actually use a for loop or a function that works on iterables, like sum(). In fact, call sum() now to iterate through the generators:
+512,
+513,total_series_a = sum(funding)
+514,
+515,Putting this all together, you’ll produce the following script:
+516,
+517,file_name = "techcrunch.csv"
+518,
+519,lines = (line for line in open(file_name))
+520,
+521,list_line = (s.rstrip()split(",") for s in lines)
+522,
+523,cols = next(list_line)
+524,
+525,company_dicts = (dict(zip(cols, data)) for data in list_line)
+526,
+527,funding = (
+528,
+529,    int(company_dict["raisedAmt"])
+530,
+531,    for company_dict in company_dicts
+532,
+533,    if company_dict["round"] == "a"
+534,
+535,)
+536,
+537,total_series_a = sum(funding)
+538,
+539,print(f"Total series A fundraising: ${total_series_a}")
+540,
+541,This script pulls together every generator you’ve built, and they all function as one big data pipeline. Here’s a line by line breakdown:
+542,
+543,    Line 2 reads in each line of the file.
+544,    Line 3 splits each line into values and puts the values into a list.
+545,    Line 4 uses next() to store the column names in a list.
+546,    Line 5 creates dictionaries and unites them with a zip() call:
+547,        The keys are the column names cols from line 4.
+548,        The values are the rows in list form, created in line 3.
+549,    Line 6 gets each company’s series A funding amounts. It also filters out any other raised amount.
+550,    Line 11 begins the iteration process by calling sum() to get the total amount of series A funding found in the CSV.
+551,
+552,When you run this code on techcrunch.csv, you should find a total of $4,376,015,000 raised in series A funding rounds.
+553,
+554,Note: The methods for handling CSV files developed in this tutorial are important for understanding how to use generators and the Python yield statement. However, when you work with CSV files in Python, you should instead use the csv module included in Python’s standard library. This module has optimized methods for handling CSV files efficiently.
+555,
