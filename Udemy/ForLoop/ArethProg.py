@@ -1,5 +1,5 @@
 a = int(input('Enter a number: '))
-d = 5
-n = a * 5
-for i in range(a,n,d):
-    print(i)
+d = int(input('Enter a difference: '))
+n = int(input('Enter a number of terms: '))
+for terms in range(a,a + n * d,d):
+    print(terms)
