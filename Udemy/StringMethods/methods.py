@@ -29,10 +29,11 @@ s.rpartition('o')# Separates the given chars from the end as a string in a tuple
 
 #Join Methods
 s = 'a_b_c_d_e'
-s1 = 'yxs'
+s1 = 'YXS'
 s.replace('_',',', 3)#changes char step1: old char, step2: new char, step3: how many chars
 s.join(s1)#Joins the given string puts first char of s1 to start of s then puts second char of s1 to the end of s and
-#copies the s to the end of s and puts the last char of s1 ( so here will print "ya_b_c_d_exa_b_c_d_es")
-s.split()
-s.rsplit()
+#copies the s to the end of s and puts the last char of s1 ( so here will print "Ya_b_c_d_eXa_b_c_d_eS")
+s.split()# Returns list of separated elements from start to the end, if you put char in split will return list separated with that char.
+s.rsplit()# Returns list of separated elements from the end to the start
 s.splitlines()
+s.sorted()#returns Sorted list of chars in order of ascii
