@@ -37,4 +37,4 @@ dict7 = {i:x for x,i in zip(L4,L5)}
 print(dict7)
 L6 = ['a','b','c','d']
 dict8 = dict((x,i) for i,x in enumerate(L6))
-print(dict8)x
+print(dict8)
